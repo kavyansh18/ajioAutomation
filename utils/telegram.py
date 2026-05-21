@@ -26,43 +26,24 @@ class TelegramNotifier:
             return False
         return True
 
-    def send_alert(self, product: dict) -> bool:
+    def send_message(self, text: str) -> bool:
         """
-        Sends a price drop alert message to the configured Telegram chat.
-        
-        How the Telegram Bot API works (Requirement 18):
-        - The bot communicates via HTTPS requests to: https://api.telegram.org/bot<TOKEN>/sendMessage
-        - It sends a JSON POST request containing 'chat_id', 'text' message body, and optional formatting flags (HTML).
-        - The API returns '{"ok": true}' if the chat ID is valid and the bot has permission to message the chat.
+        Sends a generic text message to the configured Telegram chat.
         """
         if not self.validate_credentials():
             return False
 
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        
-        # Exact format specified in requirement 5
-        message_text = (
-            "🚨 AJIO ALERT 🚨\n\n"
-            f"Product: {product.get('title', 'Unknown')}\n"
-            f"Price: ₹{product.get('price', 'N/A')}\n"
-            f"MRP: ₹{product.get('mrp', 'N/A')}\n"
-            f"Link: {product.get('link', '')}"
-        )
-
         payload = {
             "chat_id": self.chat_id,
-            "text": message_text,
+            "text": text,
             "parse_mode": "HTML"
         }
 
-        logger.info(f"Dispatching Telegram price alert for: {product.get('title')}")
-        
         try:
             response = requests.post(url, json=payload, timeout=10)
             res_json = response.json()
-            
             if response.status_code == 200 and res_json.get("ok"):
-                logger.info("Telegram alert delivered successfully!")
                 return True
             else:
                 logger.error(
@@ -72,3 +53,22 @@ class TelegramNotifier:
         except Exception as e:
             logger.error(f"Failed to communicate with Telegram Bot API: {e}", exc_info=True)
             return False
+
+    def send_alert(self, product: dict) -> bool:
+        """
+        Sends a price drop alert message to the configured Telegram chat.
+        """
+        # Exact format specified in requirement 5
+        message_text = (
+            "🚨 AJIO ALERT 🚨\n\n"
+            f"Product: {product.get('title', 'Unknown')}\n"
+            f"Price: ₹{product.get('price', 'N/A')}\n"
+            f"MRP: ₹{product.get('mrp', 'N/A')}\n"
+            f"Link: {product.get('link', '')}"
+        )
+
+        logger.info(f"Dispatching Telegram price alert for: {product.get('title')}")
+        delivered = self.send_message(message_text)
+        if delivered:
+            logger.info("Telegram alert delivered successfully!")
+        return delivered
