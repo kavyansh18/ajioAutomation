@@ -75,7 +75,7 @@ jobs:
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
           # Force headless mode on GHA environment
           DEBUG: 'false'
-        run: python main.py
+        run: python3 main.py
 
       # Step 7: Upload diagnostic logs and screenshots upon scraper failure
       - name: Upload Debug Screenshots (On Failure)
