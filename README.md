@@ -155,6 +155,55 @@ The workflow `.github/workflows/monitor.yml` will securely map these secrets to 
 
 ---
 
+## 🌐 Using ScraperAPI Residential Proxies
+
+### Why GitHub Actions was blocked:
+AJIO employs Akamai Web Application Firewall (WAF), which actively blocks public cloud datacenter IP ranges (such as Microsoft Azure/AWS IP pools where GitHub Action runners execute). When scraper requests originate from these datacenters, the platform issues an immediate `403 Forbidden` block page.
+
+### Why the previous Proxy approach failed:
+Attempting to connect ScraperAPI as a native Chromium proxy (`http://proxy-server.scraperapi.com:8001`) causes the browser to hang indefinitely on a blank window (`about:blank`). This happens because Chromium's proxy authentication protocol introduces complex gateway handshakes and SSL interception overheads, resulting in connection timeouts before the page can resolve. ScraperAPI is optimized for direct fetch/rendering endpoint routing rather than browser-level tunnel proxying.
+
+### How the Fetch Endpoint solves WAF issues (Correct Architecture):
+Instead of routing Chromium's engine traffic through a proxy tunnel, the scraper launches standard Playwright Chromium locally and directs it to ScraperAPI's secure, pre-rendered fetch endpoint:
+```
+GitHub Actions / Local Runner
+          ↓ (Launches Standard Playwright Chromium)
+Playwright Chromium
+          ↓ (Loads rendered URL with key)
+ScraperAPI Fetch Endpoint (render=true)
+          ↓ (Fetches category via residential proxy network)
+AJIO Category Page
+          ↓ (Returns rendered HTML payload)
+Telegram Alert Dispatcher
+```
+By appending `render=true` to the ScraperAPI URL, the proxy platform handles all heavy JavaScript execution and dynamically fetches category listings using clean domestic internet service provider (ISP) residential IPs, returning the fully hydrated HTML seamlessly to our browser.
+
+### How to add SCRAPERAPI_KEY secret on GitHub:
+1. Navigate to your repository page on GitHub.
+2. Click **Settings** (gear icon) → **Secrets and variables** → **Actions**.
+3. Click the green **New repository secret** button.
+4. Add the following secret:
+   * **Name**: `SCRAPERAPI_KEY`
+   * **Value**: *Your ScraperAPI Key* (e.g. `dbc101a1357311aed28acbd026d49314`)
+5. Click **Add secret** to encrypt and save. The scheduler will map the secret to the environment automatically on every run.
+
+### Local Setup Instructions:
+1. Add your ScraperAPI key inside your local `.env` file:
+   ```env
+   SCRAPERAPI_KEY=dbc101a1357311aed28acbd026d49314
+   ```
+2. Run the scraper locally:
+   ```bash
+   python main.py
+   ```
+3. The scraper will output logs showing `Using ScraperAPI rendered fetch endpoint...` followed by `ScraperAPI URL generated successfully` and `Launching Chromium without proxy mode`.
+
+### Troubleshooting:
+*   **Missing Key**: If the key is missing from the environment, the scraper logs a critical exit warning and terminates execution immediately to avoid launching unproxied requests which would get blocked by the WAF.
+*   **Latency**: Rendering residential proxy requests introduces high latency. Playwright's timeout inside `playwright.config.py` is configured to `90000ms` (90 seconds) to ensure plenty of time for ScraperAPI to render and return the page successfully.
+
+---
+
 ## 🔍 Debugging & Screenshot Diagnostics
 
 If a run fails due to selector changes, dynamic rendering waits, or WAF blocks:

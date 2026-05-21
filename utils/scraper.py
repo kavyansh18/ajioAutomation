@@ -28,6 +28,11 @@ class AJIOScraper:
         self.headless = not self.debug_mode
         self.screenshots_dir = "screenshots"
         os.makedirs(self.screenshots_dir, exist_ok=True)
+        
+        # Load and validate ScraperAPI Residential Proxy key (Requirement 2)
+        self.scraperapi_key = os.getenv("SCRAPERAPI_KEY")
+        if not self.scraperapi_key:
+            logger.warning("SCRAPERAPI_KEY environment variable is not defined. Proxy routing will fail without a key.")
 
     def _apply_stealth_settings(self, context: BrowserContext, page: Page):
         """Applies stealth overrides to mask webdriver signatures and emulate human attributes."""
@@ -72,9 +77,23 @@ class AJIOScraper:
 
     def fetch_page_content_with_retry(self, max_retries: int = 3) -> str:
         """
-        Launches Playwright Chromium browser and navigates to the AJIO target URL.
+        Launches Playwright Chromium browser and navigates to the AJIO target URL via ScraperAPI Render endpoint.
         Includes built-in retries, stealth masking, block detection, and failure screenshot capturing.
         """
+        # Validate SCRAPERAPI_KEY exists (Requirement 6)
+        if not self.scraperapi_key:
+            logger.critical("SCRAPERAPI_KEY is missing from the environment. Scraper terminated safely.")
+            return ""
+            
+        logger.info("SCRAPERAPI_KEY loaded successfully.")
+        logger.info("Using ScraperAPI rendered fetch endpoint...")
+        
+        import urllib.parse
+        encoded_url = urllib.parse.quote_plus(AJIO_URL)
+        SCRAPERAPI_URL = f"http://api.scraperapi.com/?api_key={self.scraperapi_key}&render=true&url={encoded_url}"
+        logger.info("ScraperAPI URL generated successfully.")
+        
+        logger.info("Launching Chromium without proxy mode")
         logger.info(f"Launching Playwright Chromium browser (Headless={self.headless}). Max retries: {max_retries}")
         
         # Start Playwright
@@ -83,7 +102,7 @@ class AJIOScraper:
                 logger.info(f"Scraper Run Attempt {attempt}/{max_retries}...")
                 
                 try:
-                    # Launch browser context (Requirement 1 & 11)
+                    # Launch standard browser context without proxy (Requirement 1 & 2)
                     browser: Browser = p.chromium.launch(
                         headless=self.headless,
                         args=[
@@ -96,7 +115,7 @@ class AJIOScraper:
                         ]
                     )
                     logger.debug("Chromium browser process successfully initialized.")
-
+ 
                     # Create context with realistic locale, viewport, and agent (Requirement 1 & 8)
                     context: BrowserContext = browser.new_context(
                         viewport=PLAYWRIGHT_CONFIG["viewport"],
@@ -109,15 +128,15 @@ class AJIOScraper:
                     # Set short default timeout limit
                     context.set_default_timeout(PLAYWRIGHT_CONFIG["default_timeout"])
                     page: Page = context.new_page()
-
+ 
                     # Apply playwright-stealth evasions (Requirement 1 & 8)
                     self._apply_stealth_settings(context, page)
-
+ 
                     # Navigation and loading
-                    logger.info(f"Navigating directly to AJIO Beauty sorted URL: {AJIO_URL[:60]}...")
+                    logger.info("Navigating to ScraperAPI target render URL...")
                     
-                    # Open direct URL and wait until DOM contents are fully resolved (Requirement 2 & 20)
-                    response = page.goto(AJIO_URL, wait_until="domcontentloaded", timeout=30000)
+                    # Open direct URL and wait until DOM contents are fully resolved (Requirement 4)
+                    response = page.goto(SCRAPERAPI_URL, wait_until="domcontentloaded", timeout=PLAYWRIGHT_CONFIG["default_timeout"])
                     
                     if response is None:
                         logger.warning("Empty response received from AJIO page navigate call.")
@@ -127,11 +146,11 @@ class AJIOScraper:
                         
                     logger.info(f"Page response loaded. HTTP Status: {response.status}")
                     
-                    # 1. Detect WAF / Access Denied page responses (Requirement 8)
+                    # 1. Detect WAF / Access Denied page responses or proxy server failures (Requirement 8)
                     html_content = page.content()
-                    if response.status == 403 or "access denied" in html_content.lower() or "captcha" in html_content.lower():
-                        logger.warning("Akamai WAF Access Denied block page detected!")
-                        self.capture_diagnostics(page, "access_denied")
+                    if response.status != 200 or "access denied" in html_content.lower() or "captcha" in html_content.lower():
+                        logger.warning(f"Page loading check failed. HTTP Status: {response.status}")
+                        self.capture_diagnostics(page, "loading_failure")
                         browser.close()
                         
                         if attempt < max_retries:
@@ -140,7 +159,7 @@ class AJIOScraper:
                             time.sleep(sleep_time)
                             continue
                         else:
-                            logger.error("Scraper retries exhausted due to persistent Akamai WAF blocks.")
+                            logger.error("Scraper retries exhausted due to persistent HTTP failures or blocks.")
                             return ""
 
                     # 2. Wait for target selectors or fallback loading tags (Requirement 19 & 20)
