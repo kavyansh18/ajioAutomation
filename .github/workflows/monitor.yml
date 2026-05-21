@@ -1,0 +1,88 @@
+# =====================================================================
+# AJIO Price Monitor - Playwright Browser Automation Workflow
+# =====================================================================
+# This workflow runs our modular Python scraping script periodically to
+# load AJIO category pages using a real headless Chromium browser,
+# check product prices, and dispatch instant Telegram alerts.
+#
+# Free Tier & Playwright Optimizations:
+# - Caches Pip dependencies to speed up package installation.
+# - Caches the Playwright Browser binary to avoid downloading a ~120MB Chromium
+#   image on every single workflow run, keeping runtimes under ~40 seconds.
+# =====================================================================
+
+name: AJIO Price Monitor
+
+on:
+  schedule:
+    # Run every 10 minutes, 24/7 (Requirement 12)
+    - cron: '*/10 * * * *'
+  
+  # Allows manual launch of the pipeline directly from the GitHub UI Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Execute Playwright Scraper Engine
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout repository files
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      # Step 2: Configure lightweight Python 3.11 runner
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # Automatically caches pip packages to reduce runtime on free tier
+
+      # Step 3: Install modular python dependencies
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Cache Playwright browser binaries to optimize runner execution times
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      # Step 5: Install Playwright system dependencies and Chromium browser (Requirement 14)
+      - name: Install Playwright Chromium & System Dependencies
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # Step 5.1: If cache hits, still install browser system-level libraries
+      - name: Install Playwright System Dependencies Only (Cache Hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # Step 6: Execute Scraper Engine with Secure Environment secrets (Requirement 6 & 12)
+      - name: Run Scraper
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Force headless mode on GHA environment
+          DEBUG: 'false'
+        run: python main.py
+
+      # Step 7: Upload diagnostic logs and screenshots upon scraper failure
+      - name: Upload Debug Screenshots (On Failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-screenshots
+          path: |
+            screenshots/
+            page_source.html
+          retention-days: 5
