@@ -134,16 +134,6 @@ class AJIOMonitor:
             logger.critical("Scraper halted: Missing necessary Telegram configuration variables.")
             sys.exit(1)
 
-        # Dispatch startup notification (Telegram Enhancement Requirement 1)
-        try:
-            started_sent = self.notifier.send_message("🚀 AJIO Automation Started")
-            if started_sent:
-                logger.info("Startup Telegram notification sent successfully")
-            else:
-                logger.warning("Startup Telegram notification failed to send.")
-        except Exception as start_err:
-            logger.warning(f"Startup Telegram notification failed to send: {start_err}")
-
         try:
             # 1. Fetch resolved HTML content via Playwright Chromium
             html = self.scraper.fetch_page_content_with_retry()
@@ -167,17 +157,6 @@ class AJIOMonitor:
             alerts_sent = self.validate_and_alert(products)
             if not alerts_sent:
                 logger.info("Scan complete: No products met the under-₹10 conditions. Alerts not sent.")
-                # Send fallback notification (Telegram Enhancement Requirement 2)
-                try:
-                    fallback_sent = self.notifier.send_message(
-                        "💔 No products found under configured price threshold."
-                    )
-                    if fallback_sent:
-                        logger.info("No matching products notification dispatched")
-                    else:
-                        logger.warning("No matching products fallback notification failed to send.")
-                except Exception as fallback_err:
-                    logger.warning(f"No matching products fallback notification failed to send: {fallback_err}")
 
             logger.info("=== AJIO Price Monitor Cycle Completed Cleanly ===")
 

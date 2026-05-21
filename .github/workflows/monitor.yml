@@ -16,7 +16,7 @@ name: AJIO Price Monitor
 on:
   schedule:
     # Run every 10 minutes, 24/7
-    - cron: '*/10 * * * *'
+   - cron: '0,10,20,30,40,50 4-14 * * *'
   
   # Allows manual launch of the pipeline directly from the GitHub UI Actions tab
   workflow_dispatch:
