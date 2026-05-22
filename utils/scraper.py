@@ -87,10 +87,13 @@ class AJIOScraper:
             
         logger.info("SCRAPERAPI_KEY loaded successfully.")
         logger.info("Using ScraperAPI rendered fetch endpoint...")
-        
         import urllib.parse
         encoded_url = urllib.parse.quote_plus(AJIO_URL)
-        SCRAPERAPI_URL = f"http://api.scraperapi.com/?api_key={self.scraperapi_key}&render=true&url={encoded_url}"
+        SCRAPERAPI_URL = (
+            f"http://api.scraperapi.com/"
+            f"?api_key={self.scraperapi_key}"
+            f"&url={encoded_url}"
+        )
         logger.info("ScraperAPI URL generated successfully.")
         
         logger.info("Launching Chromium without proxy mode")
@@ -132,11 +135,18 @@ class AJIOScraper:
                     # Apply playwright-stealth evasions (Requirement 1 & 8)
                     self._apply_stealth_settings(context, page)
  
+                    # Add light randomized delay before navigation to improve stability (Fix 3)
+                    time.sleep(random.uniform(2, 6))
+
                     # Navigation and loading
                     logger.info("Navigating to ScraperAPI target render URL...")
                     
                     # Open direct URL and wait until DOM contents are fully resolved (Requirement 4)
-                    response = page.goto(SCRAPERAPI_URL, wait_until="domcontentloaded", timeout=PLAYWRIGHT_CONFIG["default_timeout"])
+                    response = page.goto(
+                        SCRAPERAPI_URL,
+                        wait_until="domcontentloaded",
+                        timeout=120000
+                    )
                     
                     if response is None:
                         logger.warning("Empty response received from AJIO page navigate call.")
