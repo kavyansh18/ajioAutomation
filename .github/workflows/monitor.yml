@@ -71,7 +71,7 @@ jobs:
       - name: Run Scraper
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
           # Force headless mode on GHA environment
           DEBUG: 'false'

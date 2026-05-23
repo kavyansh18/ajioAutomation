@@ -75,7 +75,7 @@ ajio-price-monitor/
 ### 1. Telegram Bot Creation
 1. Start a chat on Telegram with [@BotFather](https://t.me/BotFather).
 2. Use the command `/newbot` and follow the instructions to set up your bot name and get your **TELEGRAM_BOT_TOKEN**.
-3. Search for [@userinfobot](https://t.me/userinfobot) and start a chat to instantly fetch your numeric **TELEGRAM_CHAT_ID** (e.g., `1458838187`).
+3. Search for [@userinfobot](https://t.me/userinfobot) and start a chat to instantly fetch your numeric **TELEGRAM_CHAT_IDS** (e.g., `1458838187` or multiple comma-separated IDs like `1458838187,987654321`).
 4. **CRITICAL**: Start a chat directly with your newly created bot so it has permission to message you.
 
 ---
@@ -114,7 +114,7 @@ Ensure you have Python 3.11+ configured.
    Open `.env` in a text editor and enter your credentials:
    ```env
    TELEGRAM_BOT_TOKEN=8703119109:AAEpKyH52ERac3bmXTI9W6c8weV9Y_u0WrU
-   TELEGRAM_CHAT_ID=1458838187
+   TELEGRAM_CHAT_IDS=1458838187
    DEBUG=true
    ```
    
@@ -143,7 +143,7 @@ To run the bot 24/7 on GitHub's cloud environment, configure repository secrets.
 | Secret Name | Required Value | Explanation |
 |:---|:---|:---|
 | `TELEGRAM_BOT_TOKEN` | `8703119109:AAEpKyH52ERac3bmXTI9W6c8weV9Y_u0WrU` | Authorized API Token for your Telegram Bot |
-| `TELEGRAM_CHAT_ID` | `1458838187` | User profile private chat recipient ID |
+| `TELEGRAM_CHAT_IDS` | `1458838187` or `1458838187,987654321` | Comma-separated list of numeric chat recipient IDs |
 
 The workflow `.github/workflows/monitor.yml` will securely map these secrets to environment variables at runtime.
 
